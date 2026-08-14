@@ -1,45 +1,19 @@
 from playwright.sync_api import sync_playwright
 from urllib.parse import urlparse
-from collections import Counter
 
 URL = "https://99baywintv.live/channel?id=zirve"
 
-requests_seen = Counter()
-responses_seen = Counter()
-domains_seen = Counter()
 
-
-def on_request(request):
-    parsed = urlparse(request.url)
-
-    resource_type = request.resource_type
-    domain = parsed.hostname or "unknown"
-
-    requests_seen[resource_type] += 1
-    domains_seen[domain] += 1
-
-    print(
-        f">> {request.method:6} "
-        f"{domain:35} "
-        f"[{resource_type}]"
-    )
-
-
-def on_response(response):
-    resource_type = response.request.resource_type
-
-    responses_seen[resource_type] += 1
-
-    print(
-        f"<< {response.status:3} "
-        f"{urlparse(response.url).hostname or 'unknown':35} "
-        f"[{resource_type}]"
-    )
+def safe_host(url):
+    try:
+        return urlparse(url).hostname or "unknown"
+    except Exception:
+        return "unknown"
 
 
 with sync_playwright() as p:
 
-    print("Chromium başlatılıyor...")
+    print("=== BROWSER TEST ===")
 
     browser = p.chromium.launch(
         headless=True
@@ -47,62 +21,242 @@ with sync_playwright() as p:
 
     page = browser.new_page()
 
+    # -----------------------------
+    # NETWORK
+    # -----------------------------
+
+    def on_request(request):
+        print(
+            f">> {request.method:6} "
+            f"{safe_host(request.url):40} "
+            f"[{request.resource_type}]"
+        )
+
+    def on_response(response):
+        print(
+            f"<< {response.status:3} "
+            f"{safe_host(response.url):40} "
+            f"[{response.request.resource_type}]"
+        )
+
     page.on("request", on_request)
     page.on("response", on_response)
 
-    print("Sayfa açılıyor...")
+    # -----------------------------
+    # PAGE
+    # -----------------------------
+
+    print("\nSayfa açılıyor...")
 
     try:
-        page.goto(
+
+        response = page.goto(
             URL,
             wait_until="domcontentloaded",
             timeout=30000
         )
 
-        print("Ana sayfa yüklendi.")
+        print(
+            "\nAna sayfa status:",
+            response.status if response else "unknown"
+        )
 
-        page.wait_for_timeout(10000)
+        print(
+            "Ana sayfa:",
+            safe_host(page.url)
+        )
 
-        print("\n--- FRAME ANALIZI ---")
+        # JavaScript ve dinamik içerik için bekle
+        page.wait_for_timeout(15000)
 
-        print("Frame sayısı:", len(page.frames))
+        # -----------------------------
+        # FRAMES
+        # -----------------------------
+
+        print("\n=== FRAMES ===")
+
+        print(
+            "Frame sayısı:",
+            len(page.frames)
+        )
 
         for i, frame in enumerate(page.frames, 1):
-            frame_host = urlparse(frame.url).hostname
 
             print(
                 f"Frame {i}: "
-                f"{frame_host or 'unknown'}"
+                f"{safe_host(frame.url)}"
             )
 
-        print("\n--- REQUEST İSTATİSTİKLERİ ---")
+        # -----------------------------
+        # VIDEO ELEMENTS
+        # -----------------------------
+
+        print("\n=== VIDEO ELEMENTS ===")
+
+        videos = page.locator("video")
+
+        video_count = videos.count()
+
+        print(
+            "Video element sayısı:",
+            video_count
+        )
+
+        for i in range(video_count):
+
+            video = videos.nth(i)
+
+            print(
+                f"\nVideo {i + 1}"
+            )
+
+            try:
+                print(
+                    "readyState:",
+                    video.evaluate(
+                        "(v) => v.readyState"
+                    )
+                )
+
+                print(
+                    "networkState:",
+                    video.evaluate(
+                        "(v) => v.networkState"
+                    )
+                )
+
+                print(
+                    "paused:",
+                    video.evaluate(
+                        "(v) => v.paused"
+                    )
+                )
+
+                print(
+                    "ended:",
+                    video.evaluate(
+                        "(v) => v.ended"
+                    )
+                )
+
+                print(
+                    "duration:",
+                    video.evaluate(
+                        "(v) => v.duration"
+                    )
+                )
+
+                print(
+                    "currentTime:",
+                    video.evaluate(
+                        "(v) => v.currentTime"
+                    )
+                )
+
+            except Exception as e:
+
+                print(
+                    "Video okunamadı:",
+                    e
+                )
+
+        # -----------------------------
+        # AUDIO ELEMENTS
+        # -----------------------------
+
+        print("\n=== AUDIO ELEMENTS ===")
+
+        audios = page.locator("audio")
+
+        print(
+            "Audio element sayısı:",
+            audios.count()
+        )
+
+        # -----------------------------
+        # COMMON PLAYER ELEMENTS
+        # -----------------------------
+
+        print("\n=== PLAYER ELEMENTLERİ ===")
+
+        selectors = [
+            "video",
+            "audio",
+            "[class*='player']",
+            "[id*='player']",
+            "[class*='video']",
+            "[id*='video']"
+        ]
+
+        for selector in selectors:
+
+            try:
+                count = page.locator(
+                    selector
+                ).count()
+
+                print(
+                    f"{selector:25} -> {count}"
+                )
+
+            except Exception:
+                pass
+
+        # -----------------------------
+        # PERFORMANCE RESOURCE TYPES
+        # -----------------------------
+
+        print(
+            "\n=== PERFORMANCE RESOURCES ==="
+        )
+
+        resources = page.evaluate(
+            """
+            () => performance
+                .getEntriesByType('resource')
+                .map(x => ({
+                    name: x.name,
+                    initiatorType: x.initiatorType
+                }))
+            """
+        )
+
+        type_count = {}
+
+        for resource in resources:
+
+            resource_type = (
+                resource["initiatorType"]
+                or "unknown"
+            )
+
+            type_count[resource_type] = (
+                type_count.get(resource_type, 0) + 1
+            )
 
         for resource_type, count in sorted(
-            requests_seen.items()
+            type_count.items()
         ):
+
             print(
-                f"{resource_type:15} {count}"
+                f"{resource_type:20} {count}"
             )
 
-        print("\n--- RESPONSE İSTATİSTİKLERİ ---")
-
-        for resource_type, count in sorted(
-            responses_seen.items()
-        ):
-            print(
-                f"{resource_type:15} {count}"
-            )
-
-        print("\n--- DOMAIN İSTATİSTİKLERİ ---")
-
-        for domain, count in domains_seen.most_common(20):
-            print(
-                f"{domain:35} {count}"
-            )
+        print(
+            "\n=== TEST TAMAMLANDI ==="
+        )
 
     except Exception as e:
-        print("Tarayıcı hatası:", e)
+
+        print(
+            "\nBROWSER HATASI:",
+            repr(e)
+        )
 
     finally:
+
         browser.close()
-        print("\nChromium kapatıldı.")
+
+        print(
+            "Chromium kapatıldı."
+        )

@@ -70,3 +70,24 @@ for i, iframe in enumerate(iframes, 1):
     scripts = iframe_soup.find_all("script")
 
     print("Script sayısı:", len(scripts))
+
+print("\n--- SCRIPT ANALIZI ---")
+
+for i, script in enumerate(scripts, 1):
+
+    src = script.get("src")
+
+    if src:
+        script_url = urljoin(iframe_response.url, src)
+        print(f"[{i}] HARICI SCRIPT:")
+        print(script_url)
+
+    else:
+        content = script.get_text(strip=True)
+
+        print(f"[{i}] INLINE SCRIPT")
+        print("Uzunluk:", len(content))
+
+        if content:
+            print("İlk 300 karakter:")
+            print(content[:300])

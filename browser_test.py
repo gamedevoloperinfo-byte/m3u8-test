@@ -21,9 +21,9 @@ with sync_playwright() as p:
 
     page = browser.new_page()
 
-    # -----------------------------
+    # --------------------------------------------------
     # NETWORK
-    # -----------------------------
+    # --------------------------------------------------
 
     def on_request(request):
         print(
@@ -42,9 +42,9 @@ with sync_playwright() as p:
     page.on("request", on_request)
     page.on("response", on_response)
 
-    # -----------------------------
+    # --------------------------------------------------
     # PAGE
-    # -----------------------------
+    # --------------------------------------------------
 
     print("\nSayfa açılıyor...")
 
@@ -66,12 +66,12 @@ with sync_playwright() as p:
             safe_host(page.url)
         )
 
-        # JavaScript ve dinamik içerik için bekle
+        # Dinamik JavaScript/player işlemleri için bekle
         page.wait_for_timeout(15000)
 
-        # -----------------------------
+        # --------------------------------------------------
         # FRAMES
-        # -----------------------------
+        # --------------------------------------------------
 
         print("\n=== FRAMES ===")
 
@@ -87,9 +87,9 @@ with sync_playwright() as p:
                 f"{safe_host(frame.url)}"
             )
 
-        # -----------------------------
+        # --------------------------------------------------
         # VIDEO ELEMENTS
-        # -----------------------------
+        # --------------------------------------------------
 
         print("\n=== VIDEO ELEMENTS ===")
 
@@ -111,6 +111,7 @@ with sync_playwright() as p:
             )
 
             try:
+
                 print(
                     "readyState:",
                     video.evaluate(
@@ -157,12 +158,88 @@ with sync_playwright() as p:
 
                 print(
                     "Video okunamadı:",
-                    e
+                    repr(e)
                 )
 
-        # -----------------------------
+        # --------------------------------------------------
+        # VIDEO SOURCE TEŞHİSİ
+        # --------------------------------------------------
+
+        print("\n=== VIDEO SOURCE TEŞHİSİ ===")
+
+        for i in range(video_count):
+
+            video = videos.nth(i)
+
+            try:
+
+                result = video.evaluate("""
+                    v => ({
+                        hasSrcAttribute:
+                            v.hasAttribute("src"),
+
+                        srcAttributeEmpty:
+                            !v.getAttribute("src"),
+
+                        hasCurrentSrc:
+                            !!v.currentSrc,
+
+                        hasSrcObject:
+                            !!v.srcObject,
+
+                        readyState:
+                            v.readyState,
+
+                        networkState:
+                            v.networkState
+                    })
+                """)
+
+                print(
+                    f"\nVideo {i + 1}:"
+                )
+
+                print(
+                    "src attribute var:",
+                    result["hasSrcAttribute"]
+                )
+
+                print(
+                    "src attribute boş:",
+                    result["srcAttributeEmpty"]
+                )
+
+                print(
+                    "currentSrc atanmış:",
+                    result["hasCurrentSrc"]
+                )
+
+                print(
+                    "srcObject atanmış:",
+                    result["hasSrcObject"]
+                )
+
+                print(
+                    "readyState:",
+                    result["readyState"]
+                )
+
+                print(
+                    "networkState:",
+                    result["networkState"]
+                )
+
+            except Exception as e:
+
+                print(
+                    f"Video {i + 1} "
+                    "source teşhis hatası:",
+                    repr(e)
+                )
+
+        # --------------------------------------------------
         # AUDIO ELEMENTS
-        # -----------------------------
+        # --------------------------------------------------
 
         print("\n=== AUDIO ELEMENTS ===")
 
@@ -173,9 +250,9 @@ with sync_playwright() as p:
             audios.count()
         )
 
-        # -----------------------------
+        # --------------------------------------------------
         # COMMON PLAYER ELEMENTS
-        # -----------------------------
+        # --------------------------------------------------
 
         print("\n=== PLAYER ELEMENTLERİ ===")
 
@@ -191,6 +268,7 @@ with sync_playwright() as p:
         for selector in selectors:
 
             try:
+
                 count = page.locator(
                     selector
                 ).count()
@@ -202,9 +280,9 @@ with sync_playwright() as p:
             except Exception:
                 pass
 
-        # -----------------------------
-        # PERFORMANCE RESOURCE TYPES
-        # -----------------------------
+        # --------------------------------------------------
+        # PERFORMANCE RESOURCES
+        # --------------------------------------------------
 
         print(
             "\n=== PERFORMANCE RESOURCES ==="
@@ -241,6 +319,66 @@ with sync_playwright() as p:
             print(
                 f"{resource_type:20} {count}"
             )
+
+        # --------------------------------------------------
+        # MEDIA CAPABILITY TEST
+        # --------------------------------------------------
+
+        print(
+            "\n=== MEDIA CAPABILITY ==="
+        )
+
+        try:
+
+            capabilities = page.evaluate(
+                """
+                () => ({
+                    hlsNative:
+                        !!document.createElement("video")
+                            .canPlayType(
+                                "application/vnd.apple.mpegurl"
+                            ),
+
+                    mp4:
+                        !!document.createElement("video")
+                            .canPlayType(
+                                "video/mp4"
+                            ),
+
+                    webm:
+                        !!document.createElement("video")
+                            .canPlayType(
+                                "video/webm"
+                            )
+                })
+                """
+            )
+
+            print(
+                "Native HLS desteği:",
+                capabilities["hlsNative"]
+            )
+
+            print(
+                "MP4 desteği:",
+                capabilities["mp4"]
+            )
+
+            print(
+                "WebM desteği:",
+                capabilities["webm"]
+            )
+
+        except Exception as e:
+
+            print(
+                "Media capability testi hatası:",
+                repr(e)
+            )
+
+        # --------------------------------------------------
+        # FINAL
+        # --------------------------------------------------
 
         print(
             "\n=== TEST TAMAMLANDI ==="

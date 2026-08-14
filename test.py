@@ -33,3 +33,40 @@ for i, iframe in enumerate(iframes, 1):
     if src:
         iframe_url = urljoin(response.url, src)
         print(f"[{i}] {iframe_url}")
+        print("\nIframe testleri başlıyor...")
+
+for i, iframe in enumerate(iframes, 1):
+    src = iframe.get("src")
+
+    if not src:
+        continue
+
+    iframe_url = urljoin(response.url, src)
+
+    print(f"\nIframe {i}: {iframe_url}")
+
+    iframe_response = requests.get(
+        iframe_url,
+        headers=headers,
+        timeout=20
+    )
+
+    print("Iframe HTTP Status:", iframe_response.status_code)
+    print("Iframe Final URL:", iframe_response.url)
+    print("Iframe HTML uzunluğu:", len(iframe_response.text))
+
+    iframe_soup = BeautifulSoup(
+        iframe_response.text,
+        "html.parser"
+    )
+
+    print(
+        "Iframe title:",
+        iframe_soup.title.get_text(strip=True)
+        if iframe_soup.title
+        else "Yok"
+    )
+
+    scripts = iframe_soup.find_all("script")
+
+    print("Script sayısı:", len(scripts))

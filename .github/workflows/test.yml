@@ -17,7 +17,18 @@ jobs:
           python-version: "3.12"
 
       - name: Paketleri kur
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Playwright Chromium kur
+        run: |
+          python -m playwright install --with-deps chromium
 
       - name: Python scriptini çalıştır
-        run: python test.py
+        run: |
+          python test.py
+
+      - name: Browser testini çalıştır
+        run: |
+          python browser_test.py
